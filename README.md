@@ -39,6 +39,7 @@ Convolutional Neural Networks (CNNs) and transformers are two mainstream model a
 
 ## Resources
 
--   [Original Paper](https://arxiv.org/abs/2105.01601)
--   [Phil Wang's implementation](https://github.com/lucidrains/mlp-mixer-pytorch)
--   [Rishikesh's implementation](https://github.com/rishikksh20/MLP-Mixer-pytorch)
+- [Original Paper](https://arxiv.org/abs/2105.01601)
+- [Phil Wang's implementation](https://github.com/lucidrains/mlp-mixer-pytorch)
+- [Rishikesh's implementation](https://github.com/rishikksh20/MLP-Mixer-pytorch)
+- [Image from Nabil Madali's Medium article](https://medium.com/@nabil.madali/an-all-mlp-architecture-for-vision-7e7e1270fd33)
