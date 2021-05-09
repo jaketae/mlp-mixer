@@ -68,7 +68,7 @@ class MLPMixer(nn.Module):
         self,
         in_channels=3,
         num_features=128,
-        image_size=224,
+        image_size=256,
         patch_size=16,
         num_layers=8,
         num_classes=10,
