@@ -1,5 +1,4 @@
 import torch.nn.functional as F
-from einops.layers.torch import Rearrange
 from torch import nn
 
 
@@ -18,49 +17,49 @@ class MLP(nn.Module):
 
 
 class TokenMixer(nn.Module):
-    def __init__(self, num_patches, num_channels, dropout):
+    def __init__(self, num_patches, num_features, dropout):
         super().__init__()
-        self.norm = nn.LayerNorm(num_channels)
+        self.norm = nn.LayerNorm(num_features)
         self.mlp = MLP(num_patches, dropout)
 
     def forward(self, x):
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         residual = x
         x = self.norm(x)
         x = x.transpose(1, 2)
-        # x.shape == (batch_size, num_channels, num_patches)
+        # x.shape == (batch_size, num_features, num_patches)
         x = self.mlp(x)
         x = x.transpose(1, 2)
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         return x + residual
 
 
 class ChannelMixer(nn.Module):
-    def __init__(self, num_patches, num_channels, dropout):
+    def __init__(self, num_patches, num_features, dropout):
         super().__init__()
-        self.norm = nn.LayerNorm(num_channels)
-        self.mlp = MLP(num_channels, dropout)
+        self.norm = nn.LayerNorm(num_features)
+        self.mlp = MLP(num_features, dropout)
 
     def forward(self, x):
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         residual = x
         x = self.norm(x)
         x = self.mlp(x)
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         return x + residual
 
 
 class MixerLayer(nn.Module):
-    def __init__(self, num_patches, num_channels, dropout):
+    def __init__(self, num_patches, num_features, dropout):
         super().__init__()
-        self.token_mixer = TokenMixer(num_patches, num_channels, dropout)
-        self.channel_mixer = ChannelMixer(num_patches, num_channels, dropout)
+        self.token_mixer = TokenMixer(num_patches, num_features, dropout)
+        self.channel_mixer = ChannelMixer(num_patches, num_features, dropout)
 
     def forward(self, x):
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         x = self.token_mixer(x)
         x = self.channel_mixer(x)
-        # x.shape == (batch_size, num_patches, num_channels)
+        # x.shape == (batch_size, num_patches, num_features)
         return x
 
 
@@ -68,7 +67,7 @@ class MLPMixer(nn.Module):
     def __init__(
         self,
         in_channels=3,
-        out_channels=128,
+        num_features=128,
         image_size=224,
         patch_size=16,
         num_layers=8,
@@ -79,24 +78,23 @@ class MLPMixer(nn.Module):
         assert remainder == 0, "`image_size` must be divisibe by `patch_size`"
         num_patches = sqrt_num_patches ** 2
         super().__init__()
-        self.patcher = nn.Sequential(
-            # per-patch fully-connected is equivalent to strided conv2d
-            nn.Conv2d(
-                in_channels, out_channels, kernel_size=patch_size, stride=patch_size
-            ),
-            Rearrange("b c h w -> b (h w) c"),
+        # per-patch fully-connected is equivalent to strided conv2d
+        self.patcher = nn.Conv2d(
+            in_channels, num_features, kernel_size=patch_size, stride=patch_size
         )
         self.mixers = nn.Sequential(
-            *[MixerLayer(num_patches, out_channels, dropout) for _ in range(num_layers)]
+            *[MixerLayer(num_patches, num_features, dropout) for _ in range(num_layers)]
         )
-        self.classifier = nn.Linear(out_channels, num_classes)
+        self.classifier = nn.Linear(num_features, num_classes)
 
     def forward(self, x):
         patches = self.patcher(x)
-        # patches.shape == (batch_size, num_patches, out_channels)
+        batch_size, num_features, _, _ = patches.shape
+        patches = patches.permute(0, 2, 3, 1)
+        patches = patches.view(batch_size, -1, num_features)
+        # patches.shape == (batch_size, num_patches, num_features)
         embedding = self.mixers(patches)
-        # out.shape == (batch_size, num_patches, out_channels)
+        # embedding.shape == (batch_size, num_patches, num_features)
         embedding = embedding.mean(dim=1)
         logits = self.classifier(embedding)
         return logits
-
