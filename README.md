@@ -23,10 +23,11 @@ By default, the model comes with the following parameters:
 
 ```python
 MLPMixer(
-    in_channels=3,
-    num_features=128,
     image_size=256,
     patch_size=16,
+    in_channels=3,
+    num_features=128,
+    expansion_factor=2,
     num_layers=8,
     num_classes=10,
     dropout=0.5,
