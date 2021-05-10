@@ -1,13 +1,14 @@
-import torch.nn.functional as F
 from torch import nn
+from torch.nn import functional as F
 
 
 class MLP(nn.Module):
-    def __init__(self, num_features, dropout):
+    def __init__(self, num_features, expansion_factor, dropout):
         super().__init__()
-        self.fc1 = nn.Linear(num_features, num_features)
+        num_hidden = num_features * expansion_factor
+        self.fc1 = nn.Linear(num_features, num_hidden)
         self.dropout1 = nn.Dropout(dropout)
-        self.fc2 = nn.Linear(num_features, num_features)
+        self.fc2 = nn.Linear(num_hidden, num_features)
         self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x):
@@ -17,10 +18,10 @@ class MLP(nn.Module):
 
 
 class TokenMixer(nn.Module):
-    def __init__(self, num_patches, num_features, dropout):
+    def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
         self.norm = nn.LayerNorm(num_features)
-        self.mlp = MLP(num_patches, dropout)
+        self.mlp = MLP(num_patches, expansion_factor, dropout)
 
     def forward(self, x):
         # x.shape == (batch_size, num_patches, num_features)
@@ -35,10 +36,10 @@ class TokenMixer(nn.Module):
 
 
 class ChannelMixer(nn.Module):
-    def __init__(self, num_patches, num_features, dropout):
+    def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
         self.norm = nn.LayerNorm(num_features)
-        self.mlp = MLP(num_features, dropout)
+        self.mlp = MLP(num_features, expansion_factor, dropout)
 
     def forward(self, x):
         # x.shape == (batch_size, num_patches, num_features)
@@ -50,10 +51,10 @@ class ChannelMixer(nn.Module):
 
 
 class MixerLayer(nn.Module):
-    def __init__(self, num_patches, num_features, dropout):
+    def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
-        self.token_mixer = TokenMixer(num_patches, num_features, dropout)
-        self.channel_mixer = ChannelMixer(num_patches, num_features, dropout)
+        self.token_mixer = TokenMixer(num_features, num_patches, expansion_factor, dropout)
+        self.channel_mixer = ChannelMixer(num_features, num_patches, expansion_factor, dropout)
 
     def forward(self, x):
         # x.shape == (batch_size, num_patches, num_features)
@@ -66,10 +67,11 @@ class MixerLayer(nn.Module):
 class MLPMixer(nn.Module):
     def __init__(
         self,
-        in_channels=3,
-        num_features=128,
         image_size=256,
         patch_size=16,
+        in_channels=3,
+        num_features=128,
+        expansion_factor=2,
         num_layers=8,
         num_classes=10,
         dropout=0.5,
@@ -83,7 +85,7 @@ class MLPMixer(nn.Module):
             in_channels, num_features, kernel_size=patch_size, stride=patch_size
         )
         self.mixers = nn.Sequential(
-            *[MixerLayer(num_patches, num_features, dropout) for _ in range(num_layers)]
+            *[MixerLayer(num_features, num_patches, expansion_factor, dropout) for _ in range(num_layers)]
         )
         self.classifier = nn.Linear(num_features, num_classes)
 
