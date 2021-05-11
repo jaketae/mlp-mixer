@@ -36,7 +36,7 @@ class TokenMixer(nn.Module):
 
 
 class ChannelMixer(nn.Module):
-    def __init__(self, num_features, num_patches, expansion_factor, dropout):
+    def __init__(self, num_features, expansion_factor, dropout):
         super().__init__()
         self.norm = nn.LayerNorm(num_features)
         self.mlp = MLP(num_features, expansion_factor, dropout)
@@ -54,7 +54,7 @@ class MixerLayer(nn.Module):
     def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
         self.token_mixer = TokenMixer(num_features, num_patches, expansion_factor, dropout)
-        self.channel_mixer = ChannelMixer(num_features, num_patches, expansion_factor, dropout)
+        self.channel_mixer = ChannelMixer(num_features, expansion_factor, dropout)
 
     def forward(self, x):
         # x.shape == (batch_size, num_patches, num_features)
