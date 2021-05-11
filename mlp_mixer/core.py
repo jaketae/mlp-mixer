@@ -32,11 +32,12 @@ class TokenMixer(nn.Module):
         x = self.mlp(x)
         x = x.transpose(1, 2)
         # x.shape == (batch_size, num_patches, num_features)
-        return x + residual
+        out = x + residual
+        return out
 
 
 class ChannelMixer(nn.Module):
-    def __init__(self, num_features, expansion_factor, dropout):
+    def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
         self.norm = nn.LayerNorm(num_features)
         self.mlp = MLP(num_features, expansion_factor, dropout)
@@ -47,14 +48,19 @@ class ChannelMixer(nn.Module):
         x = self.norm(x)
         x = self.mlp(x)
         # x.shape == (batch_size, num_patches, num_features)
-        return x + residual
+        out = x + residual
+        return out
 
 
 class MixerLayer(nn.Module):
     def __init__(self, num_features, num_patches, expansion_factor, dropout):
         super().__init__()
-        self.token_mixer = TokenMixer(num_features, num_patches, expansion_factor, dropout)
-        self.channel_mixer = ChannelMixer(num_features, expansion_factor, dropout)
+        self.token_mixer = TokenMixer(
+            num_patches, num_features, expansion_factor, dropout
+        )
+        self.channel_mixer = ChannelMixer(
+            num_patches, num_features, expansion_factor, dropout
+        )
 
     def forward(self, x):
         # x.shape == (batch_size, num_patches, num_features)
@@ -62,6 +68,13 @@ class MixerLayer(nn.Module):
         x = self.channel_mixer(x)
         # x.shape == (batch_size, num_patches, num_features)
         return x
+
+
+def check_sizes(image_size, patch_size):
+    sqrt_num_patches, remainder = divmod(image_size, patch_size)
+    assert remainder == 0, "`image_size` must be divisibe by `patch_size`"
+    num_patches = sqrt_num_patches ** 2
+    return num_patches
 
 
 class MLPMixer(nn.Module):
@@ -76,16 +89,17 @@ class MLPMixer(nn.Module):
         num_classes=10,
         dropout=0.5,
     ):
-        sqrt_num_patches, remainder = divmod(image_size, patch_size)
-        assert remainder == 0, "`image_size` must be divisibe by `patch_size`"
-        num_patches = sqrt_num_patches ** 2
+        num_patches = check_sizes(image_size, patch_size)
         super().__init__()
         # per-patch fully-connected is equivalent to strided conv2d
         self.patcher = nn.Conv2d(
             in_channels, num_features, kernel_size=patch_size, stride=patch_size
         )
         self.mixers = nn.Sequential(
-            *[MixerLayer(num_features, num_patches, expansion_factor, dropout) for _ in range(num_layers)]
+            *[
+                MixerLayer(num_patches, num_features, expansion_factor, dropout)
+                for _ in range(num_layers)
+            ]
         )
         self.classifier = nn.Linear(num_features, num_classes)
 
